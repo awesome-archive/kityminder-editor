@@ -1,9 +1,9 @@
 /*!
  * ====================================================
- * kityminder-editor - v1.0.56 - 2016-07-06
+ * kityminder-editor - v1.0.67 - 2019-02-12
  * https://github.com/fex-team/kityminder-editor
  * GitHub: https://github.com/fex-team/kityminder-editor 
- * Copyright (c) 2016 ; Licensed 
+ * Copyright (c) 2019 ; Licensed 
  * ====================================================
  */
 
@@ -901,7 +901,7 @@ _p[12] = {
                     }
                 });
                 minder.on("dblclick", function() {
-                    if (minder.getSelectedNode()) {
+                    if (minder.getSelectedNode() && minder._status !== "readonly") {
                         editText();
                     }
                 });
@@ -990,7 +990,7 @@ _p[12] = {
          */
             function commitInputText(textNodes) {
                 var text = "";
-                var TAB_CHAR = "	", ENTER_CHAR = "\n", STR_CHECK = /\S/, SPACE_CHAR = " ", // 针对FF,SG,BD,LB,IE等浏览器下SPACE的charCode存在为32和160的情况做处理
+                var TAB_CHAR = "\t", ENTER_CHAR = "\n", STR_CHECK = /\S/, SPACE_CHAR = " ", // 针对FF,SG,BD,LB,IE等浏览器下SPACE的charCode存在为32和160的情况做处理
                 SPACE_CHAR_REGEXP = new RegExp("( |" + String.fromCharCode(160) + ")"), BR = document.createElement("br");
                 var isBold = false, isItalic = false;
                 for (var str, _divChildNodes, space_l, space_num, tab_num, i = 0, l = textNodes.length; i < l; i++) {
@@ -1110,7 +1110,7 @@ _p[12] = {
                     }
                 }
                 text = text.replace(/^\n*|\n*$/g, "");
-                text = text.replace(new RegExp("(\n|\r|\n\r)( |" + String.fromCharCode(160) + "){4}", "g"), "$1	");
+                text = text.replace(new RegExp("(\n|\r|\n\r)( |" + String.fromCharCode(160) + "){4}", "g"), "$1\t");
                 minder.getSelectedNode().setText(text);
                 if (isBold) {
                     minder.queryCommandState("bold") || minder.execCommand("bold");
@@ -1254,6 +1254,7 @@ _p[13] = {
             var container = this.container;
             var receiverElement = receiver.element;
             var hotbox = this.hotbox;
+            var compositionLock = false;
             // normal -> *
             receiver.listen("normal", function(e) {
                 // 为了防止处理进入edit模式而丢失处理的首字母,此时receiver必须为enable
@@ -1322,7 +1323,15 @@ _p[13] = {
                     }
                 } else if (e.type == "keyup" && e.is("Esc")) {
                     e.preventDefault();
-                    return fsm.jump("normal", "input-cancel");
+                    if (!compositionLock) {
+                        return fsm.jump("normal", "input-cancel");
+                    }
+                } else if (e.type == "compositionstart") {
+                    compositionLock = true;
+                } else if (e.type == "compositionend") {
+                    setTimeout(function() {
+                        compositionLock = false;
+                    });
                 }
             });
             //////////////////////////////////////////////
@@ -1599,6 +1608,8 @@ _p[18] = {
             element.setAttribute("tabindex", -1);
             element.classList.add("receiver");
             element.onkeydown = element.onkeypress = element.onkeyup = dispatchKeyEvent;
+            element.addEventListener("compositionstart", dispatchKeyEvent);
+            // element.addEventListener('compositionend', dispatchKeyEvent);
             this.container.appendChild(element);
             // receiver 对象
             var receiver = {
@@ -2639,7 +2650,7 @@ angular.module('kityminderEditor')
                     'insertlink': '插入链接',
                     'insertimage': '插入图片',
                     'insertnote': '插入备注',
-					'removelink': '移除已有连接',
+					'removelink': '移除已有链接',
 					'removeimage': '移除已有图片',
 					'removenote': '移除已有备注',
 					'resetlayout': '整理',
@@ -3006,7 +3017,8 @@ angular.module('kityminderEditor')
 angular.module('kityminderEditor')
     .controller('hyperlink.ctrl', ["$scope", "$modalInstance", "link", function ($scope, $modalInstance, link) {
 
-        $scope.R_URL = /(http|ftp|https):\/\/[\w\-_]+(\.[\w\-_]+)+([\w\-\.,@?^=%&amp;:/~\+#]*[\w\-\@?^=%&amp;/~\+#])?/;
+        var urlRegex = '^(?!mailto:)(?:(?:http|https|ftp)://)(?:\\S+(?::\\S*)?@)?(?:(?:(?:[1-9]\\d?|1\\d\\d|2[01]\\d|22[0-3])(?:\\.(?:1?\\d{1,2}|2[0-4]\\d|25[0-5])){2}(?:\\.(?:[0-9]\\d?|1\\d\\d|2[0-4]\\d|25[0-4]))|(?:(?:[a-z\\u00a1-\\uffff0-9]+-?)*[a-z\\u00a1-\\uffff0-9]+)(?:\\.(?:[a-z\\u00a1-\\uffff0-9]+-?)*[a-z\\u00a1-\\uffff0-9]+)*(?:\\.(?:[a-z\\u00a1-\\uffff]{2,})))|localhost)(?::\\d{2,5})?(?:(/|\\?|#)[^\\s]*)?$';
+        $scope.R_URL = new RegExp(urlRegex, 'i');
 
         $scope.url = link.url || '';
         $scope.title = link.title || '';

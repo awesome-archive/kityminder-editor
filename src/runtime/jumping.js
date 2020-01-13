@@ -48,6 +48,7 @@ define(function(require, exports, module) {
         var container = this.container;
         var receiverElement = receiver.element;
         var hotbox = this.hotbox;
+        var compositionLock = false;
 
         // normal -> *
         receiver.listen('normal', function(e) {
@@ -115,10 +116,19 @@ define(function(require, exports, module) {
                 }
             } else if (e.type == 'keyup' && e.is('Esc')) {
                 e.preventDefault();
-                return fsm.jump('normal', 'input-cancel');
+                if (!compositionLock) {
+                    return fsm.jump('normal', 'input-cancel');
+                }
+            }
+            else if (e.type == 'compositionstart') {
+                compositionLock = true;
+            }
+            else if (e.type == 'compositionend') {
+                setTimeout(function () {
+                    compositionLock = false;
+                });
             }
         });
-
 
         //////////////////////////////////////////////
         /// 右键呼出热盒
